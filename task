@@ -1,0 +1,240 @@
+#include <iostream>
+using namespace std;
+
+template<class T>
+class Array
+{
+    T* data;
+    int size, count, grow;
+
+    void Resize(int newSize)
+    {
+        T* temp = newSize > 0 ? new T[newSize]{} : nullptr;
+        int newCount = count < newSize ? count : newSize;
+        try
+        {
+            for (int i = 0; i < newCount; i++) temp[i] = data[i];
+        }
+        catch (...)
+        {
+            delete[] temp;
+            throw;
+        }
+        delete[] data;
+        data = temp;
+        size = newSize;
+        count = newCount;
+    }
+
+    void EnsureSize(int required)
+    {
+        if (required <= size) return;
+        int blocks = (required - size - 1) / grow + 1;
+        Resize(size + blocks * grow);
+    }
+
+    void Swap(Array& obj)
+    {
+        T* p = data; data = obj.data; obj.data = p;
+        int s = size; size = obj.size; obj.size = s;
+        int c = count; count = obj.count; obj.count = c;
+        int g = grow; grow = obj.grow; obj.grow = g;
+    }
+
+public:
+    Array() : data(nullptr), size(0), count(0), grow(1) {}
+
+    Array(const Array& obj) : Array()
+    {
+        T* temp = obj.size > 0 ? new T[obj.size]{} : nullptr;
+        try
+        {
+            for (int i = 0; i < obj.count; i++) temp[i] = obj.data[i];
+        }
+        catch (...)
+        {
+            delete[] temp;
+            throw;
+        }
+        data = temp;
+        size = obj.size;
+        count = obj.count;
+        grow = obj.grow;
+    }
+
+    ~Array() { delete[] data; }
+
+    Array& operator=(const Array& obj)
+    {
+        if (this != &obj)
+        {
+            Array temp(obj);
+            Swap(temp);
+        }
+        return *this;
+    }
+
+    int GetSize() const { return size; }
+    int GetUpperBound() const { return count - 1; }
+    bool IsEmpty() const { return count == 0; }
+
+    void SetSize(int newSize, int newGrow = 1)
+    {
+        if (newSize < 0 || newGrow <= 0) throw "Invalid size or grow";
+        if (newSize != size) Resize(newSize);
+        grow = newGrow;
+    }
+
+    void FreeExtra()
+    {
+        if (size != count) Resize(count);
+    }
+
+    void RemoveAll()
+    {
+        delete[] data;
+        data = nullptr;
+        size = count = 0;
+    }
+
+    T& GetAt(int index)
+    {
+        if (index < 0 || index >= count) throw "Invalid index";
+        return data[index];
+    }
+
+    const T& GetAt(int index) const
+    {
+        if (index < 0 || index >= count) throw "Invalid index";
+        return data[index];
+    }
+
+    void SetAt(int index, const T& value)
+    {
+        if (index < 0 || index >= size) throw "Invalid index";
+        data[index] = value;
+        if (index >= count) count = index + 1;
+    }
+
+    T& operator[](int index)
+    {
+        if (index < 0 || index >= size) throw "Invalid index";
+        if (index >= count) count = index + 1;
+        return data[index];
+    }
+
+    const T& operator[](int index) const { return GetAt(index); }
+
+    int Add(const T& value)
+    {
+        T item = value;
+        EnsureSize(count + 1);
+        data[count] = item;
+        return count++;
+    }
+
+    int Append(const Array& obj)
+    {
+        int firstIndex = count;
+        if (obj.count == 0) return firstIndex;
+        if (this == &obj)
+        {
+            Array temp(obj);
+            return Append(temp);
+        }
+        EnsureSize(count + obj.count);
+        for (int i = 0; i < obj.count; i++) data[count++] = obj.data[i];
+        return firstIndex;
+    }
+
+    T* GetData() { return data; }
+    const T* GetData() const { return data; }
+
+    void InsertAt(int index, const T& value, int amount = 1)
+    {
+        if (index < 0 || index > count || amount < 0) throw "Invalid insertion";
+        if (amount == 0) return;
+        T item = value;
+        EnsureSize(count + amount);
+        for (int i = count - 1; i >= index; i--) data[i + amount] = data[i];
+        for (int i = 0; i < amount; i++) data[index + i] = item;
+        count += amount;
+    }
+
+    void RemoveAt(int index, int amount = 1)
+    {
+        if (index < 0 || index > count || amount < 0 || amount > count - index)
+            throw "Invalid removal";
+        if (amount == 0) return;
+        for (int i = index; i < count - amount; i++) data[i] = data[i + amount];
+        for (int i = count - amount; i < count; i++) data[i] = T{};
+        count -= amount;
+    }
+
+    void Print() const
+    {
+        for (int i = 0; i < count; i++) cout << data[i] << ' ';
+        cout << "| Size: " << size << " | Upper bound: " << GetUpperBound() << endl;
+    }
+};
+
+int main()
+{
+    try
+    {
+        Array<int> a;
+        cout << boolalpha << "IsEmpty: " << a.IsEmpty() << endl;
+        a.SetSize(5, 5);
+        for (int i = 1; i <= 6; i++) a.Add(i * 10);
+        cout << "After Add, growth 5 -> 10:\n";
+        a.Print();
+        cout << "GetSize: " << a.GetSize() << endl;
+        cout << "GetUpperBound: " << a.GetUpperBound() << endl;
+        cout << "GetAt(2): " << a.GetAt(2) << endl;
+        a.SetAt(2, 100);
+        a[0] = 5;
+        cout << "operator[]: " << a[0] << endl;
+        a.Print();
+        Array<int> b;
+        b.Add(70); b.Add(80);
+        a.Append(b);
+        cout << "Append:\n";
+        a.Print();
+        a.InsertAt(1, 99, 2);
+        cout << "InsertAt:\n";
+        a.Print();
+        a.RemoveAt(1, 2);
+        cout << "RemoveAt:\n";
+        a.Print();
+        a.FreeExtra();
+        cout << "FreeExtra:\n";
+        a.Print();
+        Array<int> copy(a);
+        copy[0] = 999;
+        cout << "Copy:\n";
+        copy.Print();
+        cout << "Original:\n";
+        a.Print();
+        b = a;
+        cout << "Assignment:\n";
+        b.Print();
+        cout << "GetData: " << b.GetData()[0] << endl;
+        a.SetSize(3, 5);
+        cout << "Shrink to 3:\n";
+        a.Print();
+        a.RemoveAll();
+        cout << "RemoveAll:\n";
+        a.Print();
+        cout << "IsEmpty: " << a.IsEmpty() << endl;
+        Array<double> numbers;
+        numbers.Add(1.5); numbers.Add(2.7);
+        cout << "Array<double>:\n";
+        numbers.Print();
+    }
+    catch (const char* error)
+    {
+        cout << error << endl;
+        return 1;
+    }
+    return 0;
+}
